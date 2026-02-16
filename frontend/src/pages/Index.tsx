@@ -44,7 +44,7 @@ const Index = () => {
 
     try {
       // ✅ Single backend call (your /api/search handles both)
-      const response = await axios.post("http://localhost:5000/api/search", {
+      const response = await axios.post("https://render.com/docs/node-version/api/search", {
         medicine,
         city,
         pincode,
