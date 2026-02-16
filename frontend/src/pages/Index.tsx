@@ -44,7 +44,7 @@ const Index = () => {
 
     try {
       // ✅ Single backend call (your /api/search handles both)
-      const response = await axios.post("https://panchtatva-56-backend.onrender.com/api/search", {
+      const response = await axios.post("https://panchtatva-56.onrender.com/api/search", {
         medicine,
         city,
         pincode,
