@@ -21,47 +21,53 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 export const handleSearch = async (req, res) => {
   try {
-    const mapToken = process.env.MAPBOX_TOKEN;
-    const geocodingClient = mbxGeocoding({ accessToken: mapToken });
+    const { medicine } = req.body;
 
-    const { medicine, city, pincode } = req.body;
-
-    if (!medicine || !city || !pincode) {
-      return res.status(400).json({ error: "Provide medicine, city and pincode" });
+    if (!medicine) {
+      return res.status(400).json({ error: "Provide medicine name" });
     }
 
-    // Get user coordinates from Mapbox
-    const address = `${pincode}, ${city}`;
-    const geoResponse = await geocodingClient.forwardGeocode({
-      query: address,
-      limit: 1
-    }).send();
+    const cleanMedicine = medicine.trim().toLowerCase();
 
-    if (!geoResponse.body.features || geoResponse.body.features.length === 0) {
-      return res.status(400).json({ error: "Could not find location" });
-    }
-
-    const [lng, lat] = geoResponse.body.features[0].geometry.coordinates;
-
-    // Load pharmacies data from JSON
-    const filePath = path.join(process.cwd(), "medicineDataset.json");
-    const pharmaciesData = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-
-
-    // Filter pharmacies that have the requested medicine
     const filtered = pharmaciesData
-  .filter(p =>
-    p.name &&
-    p.name.toLowerCase().includes(medicine.toLowerCase())
-  )
-  .slice(0, 5);
+      .filter(p =>
+        p.name?.toLowerCase().includes(cleanMedicine) ||
+        p.short_composition1?.toLowerCase().includes(cleanMedicine)
+      )
+      .map(p => ({
+        id: p.id,
+        brand_name: p.name,
+        manufacturer: p.manufacturer_name,
+        composition: p.short_composition1,
+        pack_size: p.pack_size_label,
+        price: parseFloat(p["price(₹)"]),
+        discontinued: p.Is_discontinued === "TRUE"
+      }));
+
+    if (filtered.length === 0) {
+      return res.json({
+        query: medicine,
+        total_results: 0,
+        results: []
+      });
+    }
+
+    // Calculate price statistics
+    const prices = filtered.map(m => m.price);
+
+    const price_stats = {
+      lowest: Math.min(...prices),
+      highest: Math.max(...prices),
+      average: (
+        prices.reduce((a, b) => a + b, 0) / prices.length
+      ).toFixed(2)
+    };
 
     res.json({
-      medicine,
-      city,
-      pincode,
-      location: { lat, lng },
-      pharmacies: filtered
+      query: medicine,
+      total_results: filtered.length,
+      price_stats,
+      results: filtered
     });
 
   } catch (err) {
